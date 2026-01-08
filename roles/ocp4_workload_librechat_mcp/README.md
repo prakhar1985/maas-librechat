@@ -20,10 +20,11 @@ This workload installs:
 ## Requirements
 
 - OpenShift 4.12+
+- OpenShift GitOps (Argo CD) installed
 - Cluster admin access for SCC creation
 - Valid LiteMaaS API key (added post-installation)
 
-**Note**: This workload automatically installs OpenShift GitOps (Argo CD) if not already present.
+**Note**: In AgnosticV, include the `ocp4_workload_openshift_gitops` workload before this one.
 
 ## Quick Start
 
@@ -33,6 +34,10 @@ Add this workload to your AgnosticV `common.yaml`:
 
 ```yaml
 workloads:
+  # Install OpenShift GitOps first (prerequisite)
+  - ocp4_workload_openshift_gitops
+
+  # Then install LibreChat with MCP
   - maas_librechat.maas_librechat.ocp4_workload_librechat_mcp
 
 # Optional: Customize variables
@@ -116,18 +121,21 @@ See [docs/POST_INSTALL.md](../../docs/POST_INSTALL.md) for detailed instructions
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│  Ansible Workload                                │
-│  - Installs OpenShift GitOps (if needed)         │
-│  - Creates Argo CD Applications                  │
-└─────────────────┬───────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│  AgnosticV Workloads                              │
+│  1. ocp4_workload_openshift_gitops               │
+│  2. ocp4_workload_librechat_mcp                  │
+└─────────────────┬────────────────────────────────┘
                   │
                   ▼
         ┌─────────────────────┐
         │  OpenShift GitOps   │
         │  (Argo CD)          │
+        │  - Installed by #1  │
         └─────────┬───────────┘
                   │
+                  │ Argo CD Applications
+                  │ Created by #2
         ┌─────────┴─────────┐
         │                   │
         ▼                   ▼

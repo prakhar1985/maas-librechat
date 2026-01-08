@@ -14,8 +14,12 @@
 # -----------------------------------------------------------------------------
 # Workloads
 # -----------------------------------------------------------------------------
-# Add the LibreChat MCP workload to your list of workloads
+# IMPORTANT: OpenShift GitOps must be installed first
 workloads:
+  # Install OpenShift GitOps (prerequisite)
+  - ocp4_workload_openshift_gitops
+
+  # Then install LibreChat with MCP
   - maas_librechat.maas_librechat.ocp4_workload_librechat_mcp
 
 # -----------------------------------------------------------------------------

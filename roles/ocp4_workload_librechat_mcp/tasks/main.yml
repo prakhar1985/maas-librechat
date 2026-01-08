@@ -58,57 +58,27 @@
     state: present
     definition: "{{ lookup('template', 'route.yaml.j2') | from_yaml }}"
 
-# Ensure OpenShift GitOps is installed
-- name: Check if OpenShift GitOps operator is installed
+# Verify OpenShift GitOps is available
+- name: Check if openshift-gitops namespace exists
   kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    name: openshift-gitops-operator
-    namespace: openshift-operators
-  register: r_gitops_subscription
+    api_version: v1
+    kind: Namespace
+    name: openshift-gitops
+  register: r_gitops_namespace
 
-- name: Install OpenShift GitOps operator
-  when: r_gitops_subscription.resources | length == 0
-  block:
-    - name: Create OpenShift GitOps Subscription
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: operators.coreos.com/v1alpha1
-          kind: Subscription
-          metadata:
-            name: openshift-gitops-operator
-            namespace: openshift-operators
-          spec:
-            channel: latest
-            name: openshift-gitops-operator
-            source: redhat-operators
-            sourceNamespace: openshift-marketplace
-            installPlanApproval: Automatic
+- name: Fail if OpenShift GitOps is not installed
+  ansible.builtin.fail:
+    msg: |
+      OpenShift GitOps (Argo CD) is not installed.
 
-    - name: Wait for OpenShift GitOps operator to be ready
-      kubernetes.core.k8s_info:
-        api_version: operators.coreos.com/v1alpha1
-        kind: ClusterServiceVersion
-        namespace: openshift-operators
-      register: r_gitops_csv
-      retries: 30
-      delay: 10
-      until:
-        - r_gitops_csv.resources | length > 0
-        - r_gitops_csv.resources | selectattr('metadata.name', 'match', '^openshift-gitops-operator') | list | length > 0
-        - r_gitops_csv.resources | selectattr('metadata.name', 'match', '^openshift-gitops-operator') | map(attribute='status.phase') | list | first == 'Succeeded'
+      In AgnosticV, add the GitOps workload before this one:
+        workloads:
+          - ocp4_workload_openshift_gitops
+          - maas_librechat.maas_librechat.ocp4_workload_librechat_mcp
 
-    - name: Wait for openshift-gitops namespace to be created
-      kubernetes.core.k8s_info:
-        api_version: v1
-        kind: Namespace
-        name: openshift-gitops
-      register: r_gitops_namespace
-      retries: 20
-      delay: 10
-      until:
-        - r_gitops_namespace.resources | length > 0
+      Or install it manually:
+        oc apply -k https://github.com/redhat-developer/gitops-operator/config/default
+  when: r_gitops_namespace.resources | length == 0
 
 # Deploy LibreChat via Argo CD
 - name: Deploy LibreChat Argo CD Application

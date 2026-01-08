@@ -29,8 +29,11 @@ This collection provides a workload that installs LibreChat - an open-source AI 
 
 - Ansible 2.15+
 - OpenShift 4.12+
+- OpenShift GitOps (Argo CD) installed
 - `kubernetes.core` collection
 - Cluster admin access (for Security Context Constraints)
+
+**Note**: Use the existing `ocp4_workload_openshift_gitops` workload in AgnosticV.
 
 ## Installation
 
@@ -57,6 +60,10 @@ Add to your AgnosticV `common.yaml`:
 
 ```yaml
 workloads:
+  # Install OpenShift GitOps first (prerequisite)
+  - ocp4_workload_openshift_gitops
+
+  # Then install LibreChat with MCP
   - maas_librechat.maas_librechat.ocp4_workload_librechat_mcp
 
 # Optional customization
