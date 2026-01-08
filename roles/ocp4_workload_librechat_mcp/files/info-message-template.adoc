@@ -1,0 +1,125 @@
+= LibreChat with OpenShift MCP - Access Information
+
+Your LibreChat environment has been provisioned successfully!
+
+== Access Details
+
+[cols="1,2"]
+|===
+| *Component* | *Details*
+
+| *LibreChat URL*
+| {librechat_url}
+
+| *Username*
+| {librechat_admin_user}
+
+| *Password*
+| {librechat_admin_password}
+
+| *Namespace*
+| {librechat_namespace}
+
+| *MCP Server Enabled*
+| {openshift_mcp_enabled}
+
+| *LiteMaaS Configured*
+| {librechat_litemaas_configured}
+|===
+
+== Getting Started
+
+. *Access LibreChat*
++
+Navigate to {librechat_url} and login with the credentials above.
+
+. *Configure Your LiteMaaS API Key* (If not already configured)
++
+If `librechat_litemaas_configured` shows `false`, you need to add your own API key:
++
+[source,bash]
+----
+oc patch secret librechat-credentials-env \
+  -n {librechat_namespace} \
+  -p '{"stringData":{"CUSTOM_MODEL_KEY":"YOUR_API_KEY"}}'
+
+oc rollout restart deployment/librechat -n {librechat_namespace}
+----
+
+. *Test the AI Features*
++
+* Start a new conversation in LibreChat
+* Select "LiteMaaS" as the model
+* Send a test message
+
+. *Try the OpenShift MCP Server* (If enabled)
++
+* In LibreChat, create a new conversation
+* The OpenShift MCP server allows you to interact with cluster resources
+* Try asking questions like: "List all pods in the default namespace"
+
+== Important Notes
+
+[WARNING]
+====
+If you haven't configured a LiteMaaS API key, LibreChat won't be able to use AI models.
+
+Follow the configuration steps above or see the detailed guide:
+https://github.com/rhpds/maas-librechat/blob/main/docs/POST_INSTALL.md
+====
+
+== OpenShift Commands
+
+Useful commands for managing your LibreChat instance:
+
+[source,bash]
+----
+# View LibreChat pods
+oc get pods -n {librechat_namespace}
+
+# View LibreChat logs
+oc logs -n {librechat_namespace} deployment/librechat --tail=50
+
+# Check the secret
+oc get secret librechat-credentials-env -n {librechat_namespace}
+
+# Restart LibreChat
+oc rollout restart deployment/librechat -n {librechat_namespace}
+----
+
+== Features
+
+* *Multiple LLM Providers* - Connect to LiteMaaS, OpenAI, Anthropic, or local LLMs
+* *Model Context Protocol* - Interact with OpenShift resources from the chat interface
+* *Conversation History* - All chats are saved in MongoDB
+* *Multi-Model Support* - Switch between different AI models in the same conversation
+
+== Troubleshooting
+
+*No models available?*::
+Your LiteMaaS API key is not configured. See the configuration steps above.
+
+*Cannot login?*::
+Verify you're using the correct username format: `{librechat_admin_user}`
+
+*MCP server not responding?*::
+Check if the MCP server pod is running:
++
+[source,bash]
+----
+oc get pods -n mcp-openshift
+----
+
+== Resources
+
+* LibreChat Documentation: https://www.librechat.ai/docs
+* Model Context Protocol: https://modelcontextprotocol.io/
+* Post-Install Guide: https://github.com/rhpds/maas-librechat/blob/main/docs/POST_INSTALL.md
+
+== Support
+
+For issues or questions:
+
+* Check the troubleshooting section above
+* Review the logs: `oc logs -n {librechat_namespace} deployment/librechat`
+* Contact your workshop instructor or facilitator

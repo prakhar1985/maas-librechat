@@ -1,0 +1,72 @@
+---
+# Example Playbook: Deploy LibreChat with OpenShift MCP
+#
+# This playbook deploys LibreChat and the OpenShift MCP server.
+# Users will need to add their own LiteMaaS API keys after installation.
+#
+# Usage:
+#   ansible-playbook examples/deploy-librechat.yml
+
+- name: Deploy LibreChat with MCP Support
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # Customize these variables for your environment
+    librechat_namespace: librechat
+    librechat_admin_user: admin
+    librechat_admin_password: openshift
+
+    # Optional: Add your LiteMaaS API key here
+    # (Or leave empty and add it post-installation)
+    litemaas_api_key: ""
+
+  tasks:
+    - name: Display deployment information
+      ansible.builtin.debug:
+        msg:
+          - "Deploying LibreChat to namespace: {{ librechat_namespace }}"
+          - "Admin user will be: {{ librechat_admin_user }}@example.com"
+          - ""
+          - "After installation, remember to add your LiteMaaS API key!"
+          - "See docs/POST_INSTALL.md for instructions."
+
+    - name: Deploy LibreChat workload
+      ansible.builtin.include_role:
+        name: maas_librechat.maas_librechat.ocp4_workload_librechat_mcp
+      vars:
+        ocp4_workload_librechat_mcp_namespace: "{{ librechat_namespace }}"
+        ocp4_workload_librechat_mcp_admin_username: "{{ librechat_admin_user }}"
+        ocp4_workload_librechat_mcp_admin_password: "{{ librechat_admin_password }}"
+        ocp4_workload_librechat_mcp_litemaas_api_key: "{{ litemaas_api_key }}"
+        ocp4_workload_librechat_mcp_enable_openshift_mcp: true
+
+    - name: Get LibreChat URL
+      kubernetes.core.k8s_info:
+        api_version: route.openshift.io/v1
+        kind: Route
+        name: librechat
+        namespace: "{{ librechat_namespace }}"
+      register: _route
+
+    - name: Display access information
+      ansible.builtin.debug:
+        msg:
+          - "==================================================================="
+          - "LibreChat has been deployed successfully!"
+          - "==================================================================="
+          - ""
+          - "Access URL: https://{{ _route.resources[0].spec.host }}"
+          - "Username: {{ librechat_admin_user }}@example.com"
+          - "Password: {{ librechat_admin_password }}"
+          - ""
+          - "NEXT STEPS:"
+          - "1. Add your LiteMaaS API key to enable AI features"
+          - "2. See docs/POST_INSTALL.md for instructions"
+          - ""
+          - "Quick command to add API key:"
+          - "  oc patch secret librechat-credentials-env -n {{ librechat_namespace }} \\"
+          - "    -p '{\"stringData\":{\"CUSTOM_MODEL_KEY\":\"YOUR_KEY\"}}'"
+          - "  oc rollout restart deployment/librechat -n {{ librechat_namespace }}"
+          - "==================================================================="

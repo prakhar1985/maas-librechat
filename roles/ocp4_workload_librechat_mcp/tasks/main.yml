@@ -1,0 +1,165 @@
+---
+# ============================================================================
+# LibreChat with OpenShift MCP - Main Tasks
+# ============================================================================
+# This playbook installs LibreChat with OpenShift MCP server support.
+# Users configure their own LiteMaaS API keys post-installation.
+
+- name: Print installation message
+  ansible.builtin.debug:
+    msg: "Installing LibreChat with OpenShift MCP server support"
+
+- name: Validate required parameters
+  ansible.builtin.assert:
+    that:
+      - ocp4_workload_librechat_mcp_namespace is defined
+      - ocp4_workload_librechat_mcp_namespace | length > 0
+      - ocp4_workload_librechat_mcp_admin_username is defined
+      - ocp4_workload_librechat_mcp_admin_password is defined
+    quiet: true
+    fail_msg: "Required parameters must be defined. Check defaults/main.yml"
+
+- name: Display LiteMaaS configuration warning
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: LiteMaaS API key is not configured.
+      LibreChat will be installed but users must add their own API keys.
+      See docs/POST_INSTALL.md for instructions.
+  when: ocp4_workload_librechat_mcp_litemaas_api_key | default('', true) | length == 0
+
+# Generate random secrets for LibreChat internal use
+- name: Generate LibreChat security secrets
+  ansible.builtin.set_fact:
+    _ocp4_workload_librechat_mcp_key32: "{{ lookup('password', '/dev/null chars=hexdigits length=32') | lower }}"
+    _ocp4_workload_librechat_mcp_key16: "{{ lookup('password', '/dev/null chars=hexdigits length=16') | lower }}"
+
+# Create Security Context Constraint for LibreChat components
+- name: Create Security Context Constraint
+  when: ocp4_workload_librechat_mcp_create_scc | bool
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'scc.yaml.j2') | from_yaml }}"
+
+# Create LibreChat namespace
+- name: Create LibreChat namespace
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'namespace.yaml.j2') | from_yaml }}"
+
+# Create LibreChat secrets (with or without LiteMaaS key)
+- name: Create LibreChat credentials secret
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'secret.yaml.j2') | from_yaml }}"
+
+# Create LibreChat route
+- name: Create LibreChat route
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'route.yaml.j2') | from_yaml }}"
+
+# Create Helm values file for LibreChat
+- name: Create temporary directory for Helm values
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: librechat
+  register: _helm_temp_dir
+
+- name: Generate LibreChat Helm values
+  ansible.builtin.copy:
+    content: "{{ lookup('template', 'librechat-values.yaml.j2') }}"
+    dest: "{{ _helm_temp_dir.path }}/values.yaml"
+    mode: '0644'
+
+# Deploy LibreChat using Helm
+- name: Install LibreChat via Helm
+  kubernetes.core.helm:
+    name: librechat
+    chart_ref: "{{ ocp4_workload_librechat_mcp_repo }}"
+    chart_version: "{{ ocp4_workload_librechat_mcp_repo_tag }}"
+    release_namespace: "{{ ocp4_workload_librechat_mcp_namespace }}"
+    values_files:
+      - "{{ _helm_temp_dir.path }}/values.yaml"
+    wait: true
+    wait_timeout: 10m
+
+# Deploy OpenShift MCP Server (if enabled)
+- name: Deploy OpenShift MCP Server
+  when: ocp4_workload_librechat_mcp_enable_openshift_mcp | bool
+  block:
+    - name: Create OpenShift MCP namespace
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ ocp4_workload_librechat_mcp_openshift_namespace }}"
+
+    - name: Generate OpenShift MCP Helm values
+      ansible.builtin.copy:
+        content: "{{ lookup('template', 'mcp-openshift-values.yaml.j2') }}"
+        dest: "{{ _helm_temp_dir.path }}/mcp-values.yaml"
+        mode: '0644'
+
+    - name: Install OpenShift MCP Server via Helm
+      kubernetes.core.helm:
+        name: mcp-openshift
+        chart_ref: "{{ ocp4_workload_librechat_mcp_gitops_repo }}"
+        chart_version: "{{ ocp4_workload_librechat_mcp_gitops_repo_tag }}"
+        release_namespace: "{{ ocp4_workload_librechat_mcp_openshift_namespace }}"
+        values_files:
+          - "{{ _helm_temp_dir.path }}/mcp-values.yaml"
+        wait: true
+        wait_timeout: 5m
+
+# Wait for LibreChat to be ready
+- name: Wait for LibreChat deployment to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: librechat
+    namespace: "{{ ocp4_workload_librechat_mcp_namespace }}"
+  register: r_librechat_deployment
+  retries: 30
+  delay: 10
+  until:
+    - r_librechat_deployment.resources is defined
+    - r_librechat_deployment.resources | length > 0
+    - r_librechat_deployment.resources[0].status.availableReplicas is defined
+    - r_librechat_deployment.resources[0].status.availableReplicas > 0
+
+# Get the LibreChat route URL
+- name: Get LibreChat route
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: librechat
+    namespace: "{{ ocp4_workload_librechat_mcp_namespace }}"
+  register: r_librechat_route
+
+- name: Set LibreChat URL fact
+  ansible.builtin.set_fact:
+    _ocp4_workload_librechat_mcp_url: "https://{{ r_librechat_route.resources[0].spec.host }}"
+
+# Save user information for AgnosticD
+- name: Save user information
+  agnosticd.core.agnosticd_user_info:
+    data:
+      librechat_url: "{{ _ocp4_workload_librechat_mcp_url }}"
+      librechat_namespace: "{{ ocp4_workload_librechat_mcp_namespace }}"
+      librechat_admin_user: "{{ ocp4_workload_librechat_mcp_admin_username }}@{{ ocp4_workload_librechat_mcp_email_domain }}"
+      librechat_admin_password: "{{ ocp4_workload_librechat_mcp_admin_password }}"
+      librechat_litemaas_configured: "{{ 'true' if ocp4_workload_librechat_mcp_litemaas_api_key | default('', true) | length > 0 else 'false' }}"
+      openshift_mcp_enabled: "{{ 'true' if ocp4_workload_librechat_mcp_enable_openshift_mcp | bool else 'false' }}"
+
+- name: Print installation complete message
+  ansible.builtin.debug:
+    msg:
+      - "LibreChat installation complete!"
+      - "URL: {{ _ocp4_workload_librechat_mcp_url }}"
+      - "Admin User: {{ ocp4_workload_librechat_mcp_admin_username }}@{{ ocp4_workload_librechat_mcp_email_domain }}"
+      - "Admin Password: {{ ocp4_workload_librechat_mcp_admin_password }}"
+      - ""
+      - "IMPORTANT: If you haven't configured LiteMaaS API keys, follow the"
+      - "instructions in docs/POST_INSTALL.md to add your own keys."

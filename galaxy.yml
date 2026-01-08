@@ -1,0 +1,24 @@
+---
+namespace: maas_librechat
+name: maas_librechat
+version: 1.0.0
+readme: README.md
+authors:
+  - Prakhar Srivastava <psrivast@redhat.com>
+description: >-
+  Ansible collection for deploying LibreChat with OpenShift MCP server support.
+  Designed for educational use where users configure their own LiteMaaS keys.
+license:
+  - Apache-2.0
+tags:
+  - librechat
+  - mcp
+  - openshift
+  - ai
+  - llm
+  - agnosticd
+dependencies: {}
+repository: https://github.com/rhpds/maas-librechat
+documentation: https://github.com/rhpds/maas-librechat
+homepage: https://github.com/rhpds/maas-librechat
+issues: https://github.com/rhpds/maas-librechat/issues

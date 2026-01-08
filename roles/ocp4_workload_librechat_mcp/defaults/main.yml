@@ -1,0 +1,65 @@
+---
+# ============================================================================
+# LibreChat with OpenShift MCP - Default Variables
+# ============================================================================
+# This workload deploys LibreChat with OpenShift MCP server support.
+# LiteMaaS API keys are NOT pre-configured - users must add their own keys
+# after installation. See docs/POST_INSTALL.md for instructions.
+
+# Become user settings
+become_override: false
+ocp_username: opentlc-mgr
+silent: false
+
+# ----------------------------------------------------------------------------
+# Namespace Configuration
+# ----------------------------------------------------------------------------
+ocp4_workload_librechat_mcp_namespace: librechat
+
+# ----------------------------------------------------------------------------
+# LibreChat Configuration
+# ----------------------------------------------------------------------------
+ocp4_workload_librechat_mcp_repo: https://github.com/danny-avila/LibreChat
+ocp4_workload_librechat_mcp_repo_tag: v0.8.1
+ocp4_workload_librechat_mcp_repo_path: ./helm/librechat
+
+# Email domain for user accounts
+ocp4_workload_librechat_mcp_email_domain: "example.com"
+
+# Default admin user credentials
+# IMPORTANT: Change these in production or via AgnosticV variables
+ocp4_workload_librechat_mcp_admin_username: "admin"
+ocp4_workload_librechat_mcp_admin_password: "openshift"
+
+# ----------------------------------------------------------------------------
+# LiteMaaS Configuration (User-Configurable)
+# ----------------------------------------------------------------------------
+# IMPORTANT: These are PLACEHOLDER values. Users must configure their own
+# LiteMaaS API keys after installation. See docs/POST_INSTALL.md
+ocp4_workload_librechat_mcp_litemaas_url: "https://litellm.apps.maas.redhatworkshops.io/v1"
+ocp4_workload_librechat_mcp_litemaas_api_key: ""
+ocp4_workload_librechat_mcp_litemaas_models:
+  - "llama-scout-17b"
+
+# Set this to true if you want to skip LiteMaaS endpoint configuration
+# (useful if users will add their own OpenAI/Anthropic/etc keys via UI)
+ocp4_workload_librechat_mcp_skip_litemaas: false
+
+# ----------------------------------------------------------------------------
+# OpenShift MCP Server Configuration
+# ----------------------------------------------------------------------------
+ocp4_workload_librechat_mcp_gitops_repo: https://github.com/rhpds/mcp-gitops
+ocp4_workload_librechat_mcp_gitops_repo_tag: main
+ocp4_workload_librechat_mcp_openshift_repo_path: helm/mcp-openshift
+
+ocp4_workload_librechat_mcp_openshift_namespace: mcp-openshift
+ocp4_workload_librechat_mcp_openshift_image: quay.io/containers/kubernetes_mcp_server:latest
+
+# Enable/disable MCP servers
+ocp4_workload_librechat_mcp_enable_openshift_mcp: true
+
+# ----------------------------------------------------------------------------
+# Security Context Configuration
+# ----------------------------------------------------------------------------
+# Security context allowance for LibreChat components
+ocp4_workload_librechat_mcp_create_scc: true

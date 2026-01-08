@@ -1,0 +1,44 @@
+# Ansible
+*.retry
+.ansible/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Testing
+.tox/
+.coverage
+.cache
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+.tmp/
+tmp/
+
+# Built collections
+*.tar.gz
+maas_librechat-maas_librechat-*.tar.gz
+
+# Credentials and secrets (never commit these!)
+*.key
+*.pem
+secrets.yml
+vault-password.txt

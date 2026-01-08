@@ -1,0 +1,48 @@
+---
+# =============================================================================
+# AgnosticV requirements.yml - LibreChat with OpenShift MCP
+# =============================================================================
+# This file should be placed in your AgnosticV environment directory.
+# It specifies the Ansible collections needed for the LibreChat workload.
+#
+# Usage:
+#   ansible-galaxy collection install -r requirements.yml
+# =============================================================================
+
+collections:
+  # -----------------------------------------------------------------------------
+  # LibreChat with MCP Collection
+  # -----------------------------------------------------------------------------
+  - name: maas_librechat.maas_librechat
+    version: ">=1.0.0"
+    # For development/testing from Git:
+    # source: https://github.com/rhpds/maas-librechat.git
+    # type: git
+
+  # -----------------------------------------------------------------------------
+  # Required Dependencies
+  # -----------------------------------------------------------------------------
+  # These collections are required by the LibreChat workload
+
+  - name: kubernetes.core
+    version: ">=2.3.0"
+
+  - name: agnosticd.core
+    version: ">=0.1.0"
+
+  # -----------------------------------------------------------------------------
+  # Optional Collections (if using other workloads)
+  # -----------------------------------------------------------------------------
+  # Uncomment if you're using these workloads alongside LibreChat
+
+  # LiteMaaS Virtual Keys workload
+  # - name: rhpds.litellm_virtual_keys
+  #   version: ">=1.0.0"
+
+  # Gitea Operator workload (for Gitea MCP server)
+  # - name: rhpds.gitea
+  #   version: ">=1.0.0"
+
+  # OpenShift GitOps (optional, not required for this workload)
+  # - name: redhat.openshift_gitops
+  #   version: ">=1.0.0"
