@@ -21,7 +21,7 @@ ocp4_workload_librechat_mcp_namespace: librechat
 # ----------------------------------------------------------------------------
 ocp4_workload_librechat_mcp_repo: https://github.com/danny-avila/LibreChat
 ocp4_workload_librechat_mcp_repo_tag: v0.8.1
-ocp4_workload_librechat_mcp_repo_path: ./helm/librechat
+ocp4_workload_librechat_mcp_repo_path: helm/librechat
 
 # Email domain for user accounts
 ocp4_workload_librechat_mcp_email_domain: "example.com"

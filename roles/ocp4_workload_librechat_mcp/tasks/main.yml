@@ -82,7 +82,7 @@
 - name: Install LibreChat via Helm
   kubernetes.core.helm:
     name: librechat
-    chart_ref: "{{ _helm_temp_dir.path }}/librechat-repo{{ ocp4_workload_librechat_mcp_repo_path }}"
+    chart_ref: "{{ _helm_temp_dir.path }}/librechat-repo/{{ ocp4_workload_librechat_mcp_repo_path }}"
     release_namespace: "{{ ocp4_workload_librechat_mcp_namespace }}"
     values_files:
       - "{{ _helm_temp_dir.path }}/values.yaml"
