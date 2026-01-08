@@ -9,7 +9,7 @@ This collection provides a workload that installs LibreChat - an open-source AI 
 ## Key Features
 
 - **No pre-configured credentials** - Users add their own LiteMaaS or OpenAI API keys
-- **OpenShift native** - Uses Helm for deployment, no GitOps dependencies
+- **OpenShift native** - Uses GitOps (Argo CD) for deployment, automatically installed
 - **MCP integration** - Connects LibreChat to OpenShift resources via Model Context Protocol
 - **Simple installation** - Single workload role, minimal configuration
 - **Educational focus** - Perfect for workshops, labs, and learning environments

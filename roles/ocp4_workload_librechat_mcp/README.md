@@ -21,8 +21,9 @@ This workload installs:
 
 - OpenShift 4.12+
 - Cluster admin access for SCC creation
-- Helm charts accessible from the cluster
 - Valid LiteMaaS API key (added post-installation)
+
+**Note**: This workload automatically installs OpenShift GitOps (Argo CD) if not already present.
 
 ## Quick Start
 
@@ -116,8 +117,16 @@ See [docs/POST_INSTALL.md](../../docs/POST_INSTALL.md) for detailed instructions
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  Ansible Workload (Helm Installation)           │
+│  Ansible Workload                                │
+│  - Installs OpenShift GitOps (if needed)         │
+│  - Creates Argo CD Applications                  │
 └─────────────────┬───────────────────────────────┘
+                  │
+                  ▼
+        ┌─────────────────────┐
+        │  OpenShift GitOps   │
+        │  (Argo CD)          │
+        └─────────┬───────────┘
                   │
         ┌─────────┴─────────┐
         │                   │

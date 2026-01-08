@@ -58,39 +58,66 @@
     state: present
     definition: "{{ lookup('template', 'route.yaml.j2') | from_yaml }}"
 
-# Create temporary directories for Helm charts and values
-- name: Create temporary directory for Helm operations
-  ansible.builtin.tempfile:
-    state: directory
-    suffix: librechat
-  register: _helm_temp_dir
+# Ensure OpenShift GitOps is installed
+- name: Check if OpenShift GitOps operator is installed
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: openshift-gitops-operator
+    namespace: openshift-operators
+  register: r_gitops_subscription
 
-- name: Clone LibreChat repository for Helm chart
-  ansible.builtin.git:
-    repo: "{{ ocp4_workload_librechat_mcp_repo }}"
-    dest: "{{ _helm_temp_dir.path }}/librechat-repo"
-    version: "{{ ocp4_workload_librechat_mcp_repo_tag }}"
-    depth: 1
+- name: Install OpenShift GitOps operator
+  when: r_gitops_subscription.resources | length == 0
+  block:
+    - name: Create OpenShift GitOps Subscription
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: operators.coreos.com/v1alpha1
+          kind: Subscription
+          metadata:
+            name: openshift-gitops-operator
+            namespace: openshift-operators
+          spec:
+            channel: latest
+            name: openshift-gitops-operator
+            source: redhat-operators
+            sourceNamespace: openshift-marketplace
+            installPlanApproval: Automatic
 
-- name: Generate LibreChat Helm values
-  ansible.builtin.copy:
-    content: "{{ lookup('template', 'librechat-values.yaml.j2') }}"
-    dest: "{{ _helm_temp_dir.path }}/values.yaml"
-    mode: '0644'
+    - name: Wait for OpenShift GitOps operator to be ready
+      kubernetes.core.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        namespace: openshift-operators
+      register: r_gitops_csv
+      retries: 30
+      delay: 10
+      until:
+        - r_gitops_csv.resources | length > 0
+        - r_gitops_csv.resources | selectattr('metadata.name', 'match', '^openshift-gitops-operator') | list | length > 0
+        - r_gitops_csv.resources | selectattr('metadata.name', 'match', '^openshift-gitops-operator') | map(attribute='status.phase') | list | first == 'Succeeded'
 
-# Deploy LibreChat using Helm
-- name: Install LibreChat via Helm
-  kubernetes.core.helm:
-    name: librechat
-    chart_ref: "{{ _helm_temp_dir.path }}/librechat-repo/{{ ocp4_workload_librechat_mcp_repo_path }}"
-    release_namespace: "{{ ocp4_workload_librechat_mcp_namespace }}"
-    values_files:
-      - "{{ _helm_temp_dir.path }}/values.yaml"
-    wait: true
-    wait_timeout: 10m
+    - name: Wait for openshift-gitops namespace to be created
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Namespace
+        name: openshift-gitops
+      register: r_gitops_namespace
+      retries: 20
+      delay: 10
+      until:
+        - r_gitops_namespace.resources | length > 0
+
+# Deploy LibreChat via Argo CD
+- name: Deploy LibreChat Argo CD Application
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'application-librechat.yaml.j2') | from_yaml }}"
 
 # Deploy OpenShift MCP Server (if enabled)
-- name: Deploy OpenShift MCP Server
+- name: Deploy OpenShift MCP Server via Argo CD
   when: ocp4_workload_librechat_mcp_enable_openshift_mcp | bool
   block:
     - name: Create OpenShift MCP namespace
@@ -102,28 +129,10 @@
           metadata:
             name: "{{ ocp4_workload_librechat_mcp_openshift_namespace }}"
 
-    - name: Clone MCP GitOps repository for Helm chart
-      ansible.builtin.git:
-        repo: "{{ ocp4_workload_librechat_mcp_gitops_repo }}"
-        dest: "{{ _helm_temp_dir.path }}/mcp-repo"
-        version: "{{ ocp4_workload_librechat_mcp_gitops_repo_tag }}"
-        depth: 1
-
-    - name: Generate OpenShift MCP Helm values
-      ansible.builtin.copy:
-        content: "{{ lookup('template', 'mcp-openshift-values.yaml.j2') }}"
-        dest: "{{ _helm_temp_dir.path }}/mcp-values.yaml"
-        mode: '0644'
-
-    - name: Install OpenShift MCP Server via Helm
-      kubernetes.core.helm:
-        name: mcp-openshift
-        chart_ref: "{{ _helm_temp_dir.path }}/mcp-repo/{{ ocp4_workload_librechat_mcp_openshift_repo_path }}"
-        release_namespace: "{{ ocp4_workload_librechat_mcp_openshift_namespace }}"
-        values_files:
-          - "{{ _helm_temp_dir.path }}/mcp-values.yaml"
-        wait: true
-        wait_timeout: 5m
+    - name: Deploy OpenShift MCP Server Argo CD Application
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'application-mcp-openshift.yaml.j2') | from_yaml }}"
 
 # Wait for LibreChat to be ready
 - name: Wait for LibreChat deployment to be ready
@@ -175,10 +184,3 @@
       - ""
       - "IMPORTANT: If you haven't configured LiteMaaS API keys, follow the"
       - "instructions in docs/POST_INSTALL.md to add your own keys."
-
-# Cleanup temporary directory
-- name: Remove temporary Helm directory
-  ansible.builtin.file:
-    path: "{{ _helm_temp_dir.path }}"
-    state: absent
-  when: _helm_temp_dir.path is defined

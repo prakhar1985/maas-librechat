@@ -1,0 +1,65 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mcp-openshift
+  namespace: openshift-gitops
+  labels:
+    app: mcp-openshift
+    workload: librechat-mcp
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  destination:
+    namespace: {{ ocp4_workload_librechat_mcp_openshift_namespace }}
+    server: 'https://kubernetes.default.svc'
+  project: default
+  source:
+    helm:
+      values: |
+        fullnameOverride: mcp-openshift
+
+        image:
+          repository: {{ ocp4_workload_librechat_mcp_openshift_image.split(':')[0] }}
+          tag: {{ ocp4_workload_librechat_mcp_openshift_image.split(':')[1] | default('latest') }}
+          pullPolicy: Always
+
+        service:
+          type: ClusterIP
+          port: 8080
+
+        route:
+          enabled: true
+          host: ""
+          tls:
+            termination: edge
+            insecureEdgeTerminationPolicy: Redirect
+
+        # OpenShift compatibility
+        podSecurityContext:
+          fsGroup: null
+
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: false
+          runAsUser: null
+
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+
+    path: {{ ocp4_workload_librechat_mcp_openshift_repo_path }}
+    repoURL: {{ ocp4_workload_librechat_mcp_gitops_repo }}
+    targetRevision: {{ ocp4_workload_librechat_mcp_gitops_repo_tag }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true

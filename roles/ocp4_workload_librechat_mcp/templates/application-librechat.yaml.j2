@@ -1,0 +1,135 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: librechat
+  namespace: openshift-gitops
+  labels:
+    app: librechat
+    workload: librechat-mcp
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  destination:
+    namespace: {{ ocp4_workload_librechat_mcp_namespace }}
+    server: 'https://kubernetes.default.svc'
+  project: default
+  source:
+    helm:
+      values: |
+        fullnameOverride: librechat
+
+        # OpenShift compatibility - OpenShift assigns UIDs automatically
+        # Main LibreChat app - must explicitly set these to empty/false
+        podSecurityContext:
+          fsGroup: null
+
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: false
+          runAsUser: null
+
+        # Environment variables for LibreChat
+        librechat:
+          # Custom librechat.yaml configuration
+          # https://www.librechat.ai/docs/configuration/librechat_yaml
+          configYamlContent: |-
+            version: 1.3.1
+            cache: true
+
+{% if ocp4_workload_librechat_mcp_enable_openshift_mcp | bool %}
+            # Remote MCP Server Configuration
+            mcpServers:
+              openshift:
+                type: sse
+                url: "http://mcp-openshift-proxy.{{ ocp4_workload_librechat_mcp_openshift_namespace }}.svc.cluster.local:8080/sse#openshift"
+{% endif %}
+
+{% if not ocp4_workload_librechat_mcp_skip_litemaas %}
+            # Custom OpenAI-compatible endpoints
+            # https://www.librechat.ai/docs/configuration/librechat_yaml/object_structure/custom_endpoint
+            endpoints:
+              custom:
+              - name: "LiteMaaS"
+                apiKey: "${CUSTOM_MODEL_KEY}"
+                baseURL: {{ ocp4_workload_librechat_mcp_litemaas_url }}
+                models:
+                  default: {{ ocp4_workload_librechat_mcp_litemaas_models }}
+                  fetch: true
+                titleConvo: false
+                summarize: false
+                forcePrompt: false
+                modelDisplayLabel: "LiteMaaS"
+                capabilities:
+                - "tools"
+                dropParams:
+                - "user"
+                - "frequency_penalty"
+                - "presence_penalty"
+{% endif %}
+
+          configEnv:
+            ALLOW_REGISTRATION: "true"
+            ALLOW_EMAIL_LOGIN: "true"
+
+        # Don't configure ingress, create a route for OpenShift outside of the helm chart
+        ingress:
+          enabled: false
+
+        # Add writable volumes for logs (multiple locations)
+        volumes:
+        - name: logs
+          emptyDir: {}
+        - name: logs-root
+          emptyDir: {}
+
+        volumeMounts:
+        - name: logs
+          mountPath: /app/api/logs
+        - name: logs-root
+          mountPath: /app/logs
+
+        # Global OpenShift compatibility for MongoDB
+        global:
+          compatibility:
+            openshift:
+              adaptSecurityContext: force
+
+        # MongoDB configuration
+        # IMPORTANT: As of January 2026, Bitnami only provides "latest" tag in free tier
+        # Current version running: MongoDB 8.2.2
+        # Options for pinning versions:
+        #   1. Use image digest (recommended): docker.io/bitnami/mongodb@sha256:xxxxx
+        #   2. Use Bitnami Legacy repo: docker.io/bitnamilegacy/mongodb:8.0-debian-12
+        #   3. Use official MongoDB image: docker.io/mongo:8.2.2 (requires different config)
+        mongodb:
+          image:
+            tag: "latest"
+            # To pin to current version (MongoDB 8.2.2), uncomment the line below and comment out tag:
+            # digest: "sha256:219bea2e10ac98619a0a2edbce0c5119635ffd2518852cd75c77da234e610327"
+          global:
+            compatibility:
+              openshift:
+                adaptSecurityContext: force
+
+        # Meilisearch configuration - override all security contexts
+        meilisearch:
+          podSecurityContext:
+            runAsNonRoot: false
+            runAsUser: null
+            runAsGroup: null
+            fsGroup: null
+            fsGroupChangePolicy: null
+          securityContext: {}
+
+    path: {{ ocp4_workload_librechat_mcp_repo_path }}
+    repoURL: {{ ocp4_workload_librechat_mcp_repo }}
+    targetRevision: {{ ocp4_workload_librechat_mcp_repo_tag }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true
