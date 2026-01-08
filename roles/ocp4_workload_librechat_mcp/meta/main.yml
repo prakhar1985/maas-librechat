@@ -20,4 +20,11 @@ galaxy_info:
     - ai
     - llm
 
-dependencies: []
+dependencies:
+  # OpenShift GitOps must be installed before this workload
+  # In AgnosticV, include ocp4_workload_openshift_gitops in your workloads list
+  # Example:
+  #   workloads:
+  #     - ocp4_workload_openshift_gitops
+  #     - maas_librechat.maas_librechat.ocp4_workload_librechat_mcp
+  []

@@ -122,13 +122,13 @@ Combine with other RHDP workloads:
 ---
 # common.yaml
 workloads:
-  # Install OpenShift GitOps (optional, not required for this workload)
+  # REQUIRED: Install OpenShift GitOps first
   - ocp4_workload_openshift_gitops
 
   # Install LibreChat with MCP
   - maas_librechat.maas_librechat.ocp4_workload_librechat_mcp
 
-  # Install Gitea (if you want Gitea MCP server too)
+  # Optional: Install Gitea (if you want Gitea MCP server too)
   - rhpds.gitea.ocp4_workload_gitea_operator
 
 # LibreChat configuration

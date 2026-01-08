@@ -1,0 +1,153 @@
+---
+# =============================================================================
+# Complete AgnosticV Example - LibreChat Workshop Environment
+# =============================================================================
+# This is a complete working example for deploying LibreChat in an AgnosticV
+# environment with proper workload ordering and dependencies.
+#
+# File: common.yaml (in your AgnosticV environment directory)
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Environment Metadata
+# -----------------------------------------------------------------------------
+env_type: ocp4-workshop-librechat-mcp
+cloud_provider: ec2
+software_to_deploy: openshift4
+
+# -----------------------------------------------------------------------------
+# OpenShift Cluster Configuration
+# -----------------------------------------------------------------------------
+ocp4_installer_version: "4.14"
+
+# -----------------------------------------------------------------------------
+# Required Collections
+# -----------------------------------------------------------------------------
+# Place this in requirements.yml
+requirements_content:
+  collections:
+    - name: kubernetes.core
+      version: ">=2.3.0"
+    - name: maas_librechat.maas_librechat
+      version: ">=1.0.0"
+      # For development, use Git source:
+      # source: https://github.com/prakhar1985/maas-librechat.git
+      # type: git
+
+# -----------------------------------------------------------------------------
+# Workloads - IMPORTANT: Order Matters!
+# -----------------------------------------------------------------------------
+workloads:
+  # 1. REQUIRED: Install OpenShift GitOps first
+  #    This provides Argo CD for GitOps deployments
+  - ocp4_workload_openshift_gitops
+
+  # 2. Install LibreChat with OpenShift MCP
+  #    This deploys LibreChat, MongoDB, Meilisearch, and MCP server
+  - maas_librechat.maas_librechat.ocp4_workload_librechat_mcp
+
+  # 3. Optional: Add other workloads
+  # - rhpds.gitea.ocp4_workload_gitea_operator  # For Gitea MCP server
+  # - ocp4_workload_web_terminal                # For in-browser terminal
+
+# -----------------------------------------------------------------------------
+# LibreChat Configuration
+# -----------------------------------------------------------------------------
+
+# Namespace where LibreChat will be deployed
+ocp4_workload_librechat_mcp_namespace: librechat
+
+# Admin user credentials (displayed to workshop participants)
+ocp4_workload_librechat_mcp_admin_username: instructor
+ocp4_workload_librechat_mcp_admin_password: openshift
+ocp4_workload_librechat_mcp_email_domain: workshop.redhat.com
+
+# -----------------------------------------------------------------------------
+# LiteMaaS Configuration
+# -----------------------------------------------------------------------------
+# IMPORTANT: For workshops, leave API key empty so students add their own
+ocp4_workload_librechat_mcp_litemaas_url: https://litellm.apps.maas.redhatworkshops.io/v1
+ocp4_workload_librechat_mcp_litemaas_api_key: ""
+
+# Available models (customize based on your LiteMaaS instance)
+ocp4_workload_librechat_mcp_litemaas_models:
+  - llama-scout-17b
+  - granite-3-2-8b-instruct
+  - mistral-7b-instruct
+
+# Set to true to skip LiteMaaS endpoint configuration
+# (useful if students will use OpenAI/Anthropic keys instead)
+ocp4_workload_librechat_mcp_skip_litemaas: false
+
+# -----------------------------------------------------------------------------
+# OpenShift MCP Server Configuration
+# -----------------------------------------------------------------------------
+# Enable Model Context Protocol server for OpenShift
+ocp4_workload_librechat_mcp_enable_openshift_mcp: true
+
+# Namespace for MCP server
+ocp4_workload_librechat_mcp_openshift_namespace: mcp-openshift
+
+# MCP server container image
+ocp4_workload_librechat_mcp_openshift_image: quay.io/containers/kubernetes_mcp_server:latest
+
+# -----------------------------------------------------------------------------
+# Security Configuration
+# -----------------------------------------------------------------------------
+# Create Security Context Constraint for LibreChat components
+ocp4_workload_librechat_mcp_create_scc: true
+
+# -----------------------------------------------------------------------------
+# Advanced Configuration (Usually not needed)
+# -----------------------------------------------------------------------------
+# become_override: false
+# ocp_username: opentlc-mgr
+# silent: false
+
+# -----------------------------------------------------------------------------
+# Integration with Other Workloads
+# -----------------------------------------------------------------------------
+# Example: If using LiteMaaS virtual keys workload, uncomment below:
+#
+# workloads:
+#   - ocp4_workload_openshift_gitops
+#   - rhpds.litellm_virtual_keys.ocp4_workload_litellm_virtual_keys
+#   - maas_librechat.maas_librechat.ocp4_workload_librechat_mcp
+#
+# # Pass LiteMaaS key from virtual keys workload
+# ocp4_workload_librechat_mcp_litemaas_api_key: "{{ lookup('agnosticd_user_data', 'litellm_virtual_key') | default('', true) }}"
+# ocp4_workload_librechat_mcp_litemaas_url: "{{ lookup('agnosticd_user_data', 'litellm_api_base_url') | default('https://litellm.apps.maas.redhatworkshops.io/v1', true) }}"
+
+# -----------------------------------------------------------------------------
+# User Information Display
+# -----------------------------------------------------------------------------
+# This information will be displayed to workshop participants
+# Variables are automatically populated by the workload via agnosticd_user_info
+#
+# Users will receive:
+#   - LibreChat URL
+#   - Admin username and password
+#   - Instructions for adding their LiteMaaS API key
+#   - OpenShift MCP server status
+
+# -----------------------------------------------------------------------------
+# Workshop-Specific Variables (Optional)
+# -----------------------------------------------------------------------------
+# num_users: 25  # Number of workshop participants
+# user_prefix: student  # Username prefix (student1, student2, etc.)
+
+# =============================================================================
+# Deployment Instructions
+# =============================================================================
+#
+# 1. Copy this file to your AgnosticV environment directory as common.yaml
+# 2. Create requirements.yml with the collections listed above
+# 3. Deploy using AgnosticV:
+#    ansible-playbook main.yml -e @common.yaml
+#
+# 4. After deployment, users must add their LiteMaaS API keys:
+#    oc patch secret librechat-credentials-env -n librechat \
+#      -p '{"stringData":{"CUSTOM_MODEL_KEY":"sk-user-key"}}'
+#    oc rollout restart deployment/librechat -n librechat
+#
+# =============================================================================
