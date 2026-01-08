@@ -58,12 +58,19 @@
     state: present
     definition: "{{ lookup('template', 'route.yaml.j2') | from_yaml }}"
 
-# Create Helm values file for LibreChat
-- name: Create temporary directory for Helm values
+# Create temporary directories for Helm charts and values
+- name: Create temporary directory for Helm operations
   ansible.builtin.tempfile:
     state: directory
     suffix: librechat
   register: _helm_temp_dir
+
+- name: Clone LibreChat repository for Helm chart
+  ansible.builtin.git:
+    repo: "{{ ocp4_workload_librechat_mcp_repo }}"
+    dest: "{{ _helm_temp_dir.path }}/librechat-repo"
+    version: "{{ ocp4_workload_librechat_mcp_repo_tag }}"
+    depth: 1
 
 - name: Generate LibreChat Helm values
   ansible.builtin.copy:
@@ -75,8 +82,7 @@
 - name: Install LibreChat via Helm
   kubernetes.core.helm:
     name: librechat
-    chart_ref: "{{ ocp4_workload_librechat_mcp_repo }}"
-    chart_version: "{{ ocp4_workload_librechat_mcp_repo_tag }}"
+    chart_ref: "{{ _helm_temp_dir.path }}/librechat-repo{{ ocp4_workload_librechat_mcp_repo_path }}"
     release_namespace: "{{ ocp4_workload_librechat_mcp_namespace }}"
     values_files:
       - "{{ _helm_temp_dir.path }}/values.yaml"
@@ -96,6 +102,13 @@
           metadata:
             name: "{{ ocp4_workload_librechat_mcp_openshift_namespace }}"
 
+    - name: Clone MCP GitOps repository for Helm chart
+      ansible.builtin.git:
+        repo: "{{ ocp4_workload_librechat_mcp_gitops_repo }}"
+        dest: "{{ _helm_temp_dir.path }}/mcp-repo"
+        version: "{{ ocp4_workload_librechat_mcp_gitops_repo_tag }}"
+        depth: 1
+
     - name: Generate OpenShift MCP Helm values
       ansible.builtin.copy:
         content: "{{ lookup('template', 'mcp-openshift-values.yaml.j2') }}"
@@ -105,8 +118,7 @@
     - name: Install OpenShift MCP Server via Helm
       kubernetes.core.helm:
         name: mcp-openshift
-        chart_ref: "{{ ocp4_workload_librechat_mcp_gitops_repo }}"
-        chart_version: "{{ ocp4_workload_librechat_mcp_gitops_repo_tag }}"
+        chart_ref: "{{ _helm_temp_dir.path }}/mcp-repo/{{ ocp4_workload_librechat_mcp_openshift_repo_path }}"
         release_namespace: "{{ ocp4_workload_librechat_mcp_openshift_namespace }}"
         values_files:
           - "{{ _helm_temp_dir.path }}/mcp-values.yaml"
@@ -163,3 +175,10 @@
       - ""
       - "IMPORTANT: If you haven't configured LiteMaaS API keys, follow the"
       - "instructions in docs/POST_INSTALL.md to add your own keys."
+
+# Cleanup temporary directory
+- name: Remove temporary Helm directory
+  ansible.builtin.file:
+    path: "{{ _helm_temp_dir.path }}"
+    state: absent
+  when: _helm_temp_dir.path is defined
